@@ -321,10 +321,10 @@ class ScriptTask(StateMachine, GameUi, Battle, BaseActivity, SwitchSoul, Activit
         """
         logger.hr(f'Start run climb type BOSS')
 
-        # YYS-boss-ui-patch: 入口加文字兜底 O_BOSS_ENTRY；到达判定用「挑战」按钮 O_FIRE
-        # （旧版 I_CHECK_BATTLE_BOSS 只是"已在 BOSS 战页"的图标，新版 UI 里不存在）
-        self.ui_clicks([self.I_TO_BATTLE_BOSS, self.O_BOSS_ENTRY],
-                       stop=self.O_FIRE, interval=1)
+        # YYS-boss-ui-patch2: ui_clicks 无 timeout（卡住只能等任务级超时），改带超时的 ui_click
+        if not self.appear(self.O_FIRE):
+            entry = self.I_TO_BATTLE_BOSS if self.appear(self.I_TO_BATTLE_BOSS) else self.O_BOSS_ENTRY
+            self.ui_click(entry, stop=self.O_FIRE, interval=1, timeout=90)
 
 
         while 1:

@@ -94,7 +94,9 @@ class ActivityShikigamiAssets:
 	# 挑战 
 	O_FIRE = RuleOcr(roi=(1135,599,85,49), area=(1123,570,106,100), mode="Single", method="Default", keyword="挑战", name="fire")
 	# YYS-boss-ui-patch: 当期活动 BOSS 入口是带「首领」字样的横幅（旧模板 as_to_battle_boss.png 失配）
-	O_BOSS_ENTRY = RuleOcr(roi=(1040,300,160,50), area=(1020,285,200,80), mode="Single", method="Default", keyword="首领", name="boss_entry")
+	# YYS-boss-ui-patch2: 必须用 Full —— Single 在 base_task.ocr_appear 里是"严格相等"，
+	# 而本 ROI 有两行文字（神眸重山 + 首领），ocr() 只返回第一行 → 判定恒 False
+	O_BOSS_ENTRY = RuleOcr(roi=(1040,300,160,50), area=(1020,285,200,80), mode="Full", method="Default", keyword="首领", name="boss_entry")
 	# 体力的数量检测 
 	O_REMAIN_AP = RuleOcr(roi=(777,16,63,27), area=(776,15,63,30), mode="Digit", method="Default", keyword="", name="remain_ap")
 	# 活动体力的剩余检测 
