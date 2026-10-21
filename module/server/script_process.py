@@ -39,7 +39,7 @@ class ScriptProcess(ScriptWSManager):
             logger.warning(f'Script {self.config_name} is initialized')
         if self._process and self._process.is_alive():
             logger.warning(f'Script {self.config_name} is already running and first stop it')
-            self.stop()
+            await self.stop()
         self._process = multiprocessing.Process(target=func,
                                                 args=(self.config_name, self.state_queue, self.log_pipe_in,),
                                                 name=self.config_name,
@@ -121,6 +121,14 @@ class ScriptProcess(ScriptWSManager):
 
 
 def func(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
+    # YYS-sigleak-patch: 断掉从父进程继承来的 asyncio signal wakeup fd。
+    # 否则本进程收到 SIGTERM 时，CPython 会把信号号写进父进程事件循环的 socketpair，
+    # 父进程（uvicorn）误以为自己收到 SIGTERM → 整个容器优雅退出并重启。
+    try:
+        signal.set_wakeup_fd(-1)
+    except (ValueError, OSError):
+        pass
+
     def signal_handler(signum, frame):
         logger.info(f'Script {config} received signal {signum}, exiting gracefully')
         log_pipe_in.close()

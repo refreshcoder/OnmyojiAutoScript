@@ -103,6 +103,13 @@ class Agent:
                 # case CI.BUFF_005:  # freeze
                 #     weight = -1.
                 #     _cy += 100
+                # YYS-linux-hya-patch: 可撒的 buff 标自己也要能建立 focus。否则 OBSERVE_THRESHOLD
+                # 这道门只看式神热度（buff 类在 gamma() 里贡献为 0），UP 标周围只有 R/N 时
+                # decision() 会直接 early-return，导致概率UP/好友UP 永远拿不到豆。
+                # 权重跟 focus.omega_buff() 里的保持一致。
+                case CI.BUFF_004: weight = 2.2
+                case CI.BUFF_006: weight = 2.0
+                case CI.BUFF_007: weight = 2.0
                 case _: continue
             for priority in priorities:  # 我的代码在你之上
                 if priority == _class:

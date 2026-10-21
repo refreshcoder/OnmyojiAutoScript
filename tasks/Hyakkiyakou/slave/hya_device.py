@@ -9,6 +9,7 @@ from module.exception import RequestHumanTakeover, GameStuckError
 from tasks.base_task import BaseTask
 
 from tasks.Hyakkiyakou.config import ScreenshotMethod, ControlMethod
+from module.device.env import IS_WINDOWS
 
 def image_black(img) -> bool:
     for y, x in [(0, 0), (719, 1279), (719, 0), (0, 1279)]:
@@ -31,7 +32,18 @@ class HyaDevice(BaseTask):
     def fast_screenshot(self, screenshot: ScreenshotMethod):
         self.hya_screenshot_interval.wait()
         self.hya_screenshot_interval.reset()
-        self.device.image = self.device.screenshot_window_background() if screenshot == ScreenshotMethod.WINDOW_BACKGROUND else self.device.screenshot_nemu_ipc()
+        # YYS-linux-hya-patch: window_background / nemu_ipc 只在 Windows(MuMu) 上存在，
+        # Linux(redroid) 回落到实例自己的截图方式（实测 DroidCast_raw ~25ms）。
+        if IS_WINDOWS and screenshot == ScreenshotMethod.WINDOW_BACKGROUND:
+            self.device.image = self.device.screenshot_window_background()
+        elif IS_WINDOWS and screenshot == ScreenshotMethod.NEMU_IPC:
+            self.device.image = self.device.screenshot_nemu_ipc()
+        else:
+            # Device.screenshot() 会跑 stuck_record_check()（60s 看门狗），而撒豆的 fast_click
+            # 用 control_check=False 绕过了 handle_control_check()，看门狗永不被重置
+            # -> 每场战斗满 60s 必报 GameStuckError。上游 direct 调方法就是为避开它，这里照做。
+            shot = self.device.screenshot_methods.get(self.config.script.device.screenshot_method)
+            self.device.image = (shot or self.device.screenshot_adb)()
         if image_black(self.device.image):
             logger.error('Screenshot image is black, try again')
             raise RequestHumanTakeover('Screenshot image is black, try again')
@@ -47,10 +59,13 @@ class HyaDevice(BaseTask):
         logger.info(
             'Click %s @ %s' % (point2str(x, y), 'Click')
         )
-        if control_method == ControlMethod.MINITOUCH:
+        # YYS-linux-hya-patch: window_message 仅 Windows；minitouch 要 /dev/input，redroid 没有。
+        if IS_WINDOWS and control_method == ControlMethod.MINITOUCH:
             self.device.click_minitouch(x=x, y=y)
-        else:
+        elif IS_WINDOWS and control_method == ControlMethod.WINDOW_MESSAGE:
             self.device.click_window_message(x=x, y=y, fast=True)
+        else:
+            self.device.click(x, y, control_check=False, control_name='HyaClick')
 
     def set_fast_screenshot_interval(self, interval: float):
         """

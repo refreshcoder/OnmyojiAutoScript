@@ -39,7 +39,9 @@ class GeneralBattle(BattleWait, GeneralBuff):
         self.current_count += 1
         logger.info(f"Current count: {self.current_count}")
         # 战前设置
-        self.battle_before(buff, config)
+        # YYS-wq-prepare-patch: 超时 5s→20s（这台机器布阵界面加载慢），且失败要留痕
+        if not self.battle_before(buff, config, timeout=20):
+            logger.warning('battle_before: 20s 内既没进入战斗也没点到准备，后面的等待可能卡住')
         # 绿标
         if self.is_in_battle(False):
             self.green_mark(config.green_enable, config.green_mark)
@@ -73,6 +75,11 @@ class GeneralBattle(BattleWait, GeneralBuff):
                     # 点击准备(锁定阵容自动点准备,不锁定阵容前面也已经配置完毕需要点准备)
                     if self.appear_then_click(self.I_PREPARE_HIGHLIGHT, interval=0.8):
                         continue
+                elif timeout_timer.current() > 8 and self.appear_then_click(self.I_PREPARE_HIGHLIGHT, interval=2):
+                    # YYS-wq-prepare-patch: 上游假设「锁定阵容=游戏自动开打」，所以这里什么都不做。
+                    # 实测探索小怪不会自动开打，准备鼓会一直留在屏幕上，后面 battle_wait 干等 300s。
+                    # 给 8s 自动开打的宽限期，之后仍在准备界面就兜底点掉准备。
+                    logger.info('lock team but battle not auto started, click prepare')
                 continue
             # 未知界面, 既不是准备界面也不是战斗界面
             # logger.info('Wait for preparation page')  # 这玩意刷屏

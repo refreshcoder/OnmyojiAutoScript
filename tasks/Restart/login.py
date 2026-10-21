@@ -30,6 +30,10 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
 
         confirm_timer = Timer(1.5, count=2).start()
         orientation_timer = Timer(10)
+        cg_timer = Timer(2)              # YYS-cg-skip-patch: 开场 CG 限频
+        cg_grace = Timer(20).start()     # 前 20s 不戳：那时游戏可能还没进 CG
+        cg_logged_in = False             # 见过登录页(I_LOGIN_8)之后不再戳
+        cg_taps = 0                      # 最多 15 戳，之后退回上游行为（纯等）
         login_success = False
 
         while 1:
@@ -133,7 +137,20 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
                 
             # 点击’进入游戏‘
             if not self.appear(self.I_LOGIN_8):
+                # YYS-cg-skip-patch: 开场 CG 白等 ~170s。CG 期间任意点击都会召唤出右上角
+                # 「跳过」(1280x720 实测 x1141-1192,y42-70)，定点戳它两次=召唤+按下。
+                # 必须把 'Click' 从 click_record 里摘掉：device.py:206 同一个键攒到 10 次就抛
+                # GameTooManyClickError，app_handle_login 重试耗尽后是 Request human takeover。
+                # 上限 15 戳：跳一次 CG 只要 2 戳；戳完还不行说明不是 CG 的问题（比如 I_LOGIN_8
+                # 自己没匹配上），继续戳反而可能在登录页右上角误触「用户协议」。
+                # 自更新会覆盖本补丁，之后重跑 .ops/patch-cg-skip.sh。
+                if not cg_logged_in and cg_taps < 15 and cg_grace.reached() and cg_timer.reached_and_reset():
+                    cg_taps += 1
+                    logger.info(f'Tap CG skip spot (1166,56) #{cg_taps}')
+                    self.device.click(x=1166, y=56)
+                    self.device.click_record_remove('Click')
                 continue
+            cg_logged_in = True
             
             # 登录体验服时，点击“进入游戏”速度过快，可能会出现体验服的弹窗
             if self.appear(self.I_EARLY_SERVER):

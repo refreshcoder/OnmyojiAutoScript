@@ -452,6 +452,12 @@ def serial_to_id(serial: str):
 
 
 class NemuIpc():
+    def __init__(self, *args, **kwargs):
+        # YYS-linux-mro-patch: 上游 Linux 缺陷的本地补丁（见 scripts/patch-oas.sh 注释）。
+        # 接受并忽略参数即可：self.config 由 MRO 链上更早的 Adb.__init__ 设置。
+        # OAS 自更新会覆盖本补丁，更新后需重跑 scripts/patch-oas.sh。
+        pass
+
     @cached_property
     def nemu_ipc(self) -> NemuIpcImpl:
         """
