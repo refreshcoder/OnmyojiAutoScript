@@ -2,6 +2,7 @@
 # @author runhey
 # github https://github.com/runhey
 import time
+from datetime import datetime
 
 import cv2
 import numpy as np
@@ -38,11 +39,29 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AreaBossAssets):
         else:
             return 1
 
+    # YYS-area-boss-window: 地域鬼王只在 6:00-24:00 开启，其余时段跳过。
+    def check_time_window(self) -> bool:
+        """
+        检查是否在开启时间内。不在就排到当天 06:00 并返回 False。
+        :return: True 可打 / False 已推迟
+        """
+        now = datetime.now()
+        if now.hour >= 6:
+            return True
+        target = datetime(now.year, now.month, now.day, 6, 0, 0)
+        logger.info(f'AreaBoss: not open before 06:00, wait to {target}')
+        # server=False 是关键：否则 task_delay 会用 server_update 覆盖 target
+        self.set_next_run(task='AreaBoss', server=False, target=target)
+        return False
+
     def run(self) -> bool:
         """
         运行脚本
         :return:
         """
+        # YYS-area-boss-window: 地域鬼王 6:00 后才开，0:00-6:00 直接跳过
+        if not self.check_time_window():
+            raise TaskEnd
         # 直接手动关闭这个锁定阵容的设置
         self.config.area_boss.general_battle.lock_team_enable = False
         con = self.config.area_boss.boss
