@@ -316,9 +316,47 @@ class Script:
             #         exit(0)
 
             time.sleep(5)
+            # YYS-res-snapshot: 空闲等待时也顺手看一眼（手动停在召唤页时正好被抓到）
+            self._yys_res_snapshot()
 
             if self.config.should_reload():
                 return False
+
+    # YYS-res-snapshot: 顺手记账户资源；庭院→金币/勾玉/体力，召唤页→蓝票/厕纸/勾玉。
+    def _yys_res_snapshot(self):
+        import time as _t
+        if _t.time() - getattr(self, '_yys_snap_ts', 0) < 60:      # 60s 节流
+            return
+        self._yys_snap_ts = _t.time()
+        try:
+            from tasks.GameUi.game_ui import GameUi
+            from module.atom.ocr import RuleOcr
+            if getattr(self, '_yys_ui', None) is None:
+                self._yys_ui = GameUi(config=self.config, device=self.device)
+            page = self._yys_ui.get_current_page(skip_first_screenshot=False)
+            key = getattr(page, 'key', None)
+
+            def q(roi):
+                rule = RuleOcr(roi=roi, area=roi, mode="Quantity", method="Default",
+                               keyword="", name="res_snap")
+                try:
+                    return int(rule.ocr(self.device.image))
+                except Exception:
+                    return 0
+
+            if key == 'page_main':
+                g, j, a = q((533, 9, 107, 38)), q((705, 8, 110, 39)), q((880, 10, 100, 40))
+                if g and j and a:
+                    logger.info('RES_SNAPSHOT gold=%d jade=%d ap=%d' % (g, j, a))
+            elif key == 'page_summon':
+                t, p, j = q((780, 10, 55, 36)), q((570, 15, 90, 30)), q((950, 10, 85, 32))
+                fields = [f for f in ('ticket=%d' % t if t else '',
+                                      'paper=%d' % p if p else '',
+                                      'jade=%d' % j if j else '') if f]
+                if fields:
+                    logger.info('RES_SNAPSHOT ' + ' '.join(fields))
+        except Exception:
+            pass                                # 快照失败绝不影响调度
 
     def get_next_task(self) -> str:
         """
@@ -665,6 +703,8 @@ class Script:
             #     logger.info('Server or network is recovered. Restart game client')
             #     self.config.task_call('Restart')
 
+            # YYS-res-snapshot: 任务间隙顺手记一笔账户资源（见 scripts/patch-oas-resource-snapshot.py）
+            self._yys_res_snapshot()
             # Get task
             task = self.get_next_task()
             # Skip first restart
