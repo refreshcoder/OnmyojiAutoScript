@@ -4,8 +4,6 @@
 窗口/进程的实现细节在 module/device/method/desktop_impl.py 的 DesktopWindow，
 这里只管「什么时候把客户端拉起来、什么时候算它在运行」。
 """
-from module.device.method.desktop_impl import (
-    desktop_pid_alive, desktop_window_titles, find_desktop_window_by_pid)
 from module.logger import logger
 
 
@@ -25,6 +23,11 @@ class DesktopDevice:
         文件 → 唯一窗口枚举」认领已在运行的实例——按钮手动启动的实例就是这样
         被接上的；认领不到才拉起新的。
         """
+        # YYS-linux-guard: desktop_impl imports win32api/win32gui at module level
+        # (Windows only), so importing module.device.device on Linux/emulator used
+        # to raise ModuleNotFoundError. Import lazily inside the desktop path.
+        from module.device.method.desktop_impl import (
+            desktop_pid_alive, desktop_window_titles, find_desktop_window_by_pid)
         pid = self.desktop_pid()
         if pid is not None and desktop_pid_alive(pid):
             if self.desktop_window_exists():
