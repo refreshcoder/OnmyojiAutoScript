@@ -16,7 +16,11 @@ if IS_WINDOWS:
     from module.device.desktop_device import DesktopDevice
 else:
     class DesktopDevice:
-        pass
+        # YYS-linux-guard: 上游 navigator.close_unknown_pages 无条件调用它，模拟器模式恒为 False
+        # （对齐 desktop_device.app_lost_login 的语义：只有桌面客户端掉回登录态才算）
+        def app_lost_login(self) -> bool:
+            return False
+
 from module.device.platform2 import Platform
 from module.device.screenshot import Screenshot
 from module.exception import (GameNotRunningError,
