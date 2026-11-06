@@ -121,14 +121,25 @@ class ScriptTask(GameUi, DelegationAssets):
     def check_reward(self):
         check_timer = Timer(3)
         check_timer.start()
+        # 特殊委派（弥助的画、接送…）完成后会先播剧情：整屏压暗后地图右上角的 << 灯笼会被
+        # REWARDS_CHAT 命中（实测 0.98），但结算面板还没出来，连点同一个按钮 10 次就会抛
+        # GameTooManyClickError 打死整个任务。这里给返回键加连点上限，超限后按剧情处理：
+        # 点对白区域推进剧情，整体再有硬超时兜底。
+        story_timer = Timer(8)
+        story_click = Timer(1).start()
+        back_clicks = 0
         while 1:
             self.screenshot()
             if self.appear_then_click(self.I_REWARDS_GET, interval=1):
+                back_clicks = 0
+                story_timer.clear()
                 check_timer.reset()
                 continue
-            if self.appear_then_click(self.I_REWARDS_CHAT, interval=1):
-                check_timer.reset()
-                continue
+            if back_clicks < 3:
+                if self.appear_then_click(self.I_REWARDS_CHAT, interval=1):
+                    back_clicks += 1
+                    check_timer.reset()
+                    continue
             if self.appear_then_click(self.I_CHAT_1, interval=1):
                 check_timer.reset()
                 continue
@@ -136,13 +147,26 @@ class ScriptTask(GameUi, DelegationAssets):
                 check_timer.reset()
                 continue
             if self.appear_then_click(self.I_REWARDS_DONE, interval=1):
+                back_clicks = 0
+                story_timer.clear()
                 check_timer.reset()
                 continue
             if self.appear_then_click(self.I_REWARDS_FALSE, interval=1):
+                back_clicks = 0
+                story_timer.clear()
                 check_timer.reset()
                 continue
 
-
+            if back_clicks >= 3:
+                # 返回键点了 3 次画面没变化 = 剧情浮层，点对白区域推进
+                story_timer.start()
+                if story_timer.reached():
+                    logger.warning('Delegation: reward panel not found, story may stuck, skip')
+                    return
+                if story_click.reached_and_reset():
+                    # control_check=False：同一坐标连点不进点击去重表，否则照样抛 GameTooManyClickError
+                    self.device.click(640, 620, control_check=False)
+                continue
             if not self.appear(self.I_REWARDS_MIN):
                 continue
             if check_timer.reached():
