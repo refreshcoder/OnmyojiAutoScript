@@ -57,6 +57,8 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
 
         self.screenshot()
         number_challenge = self.O_WQ_NUMBER.ocr(self.device.image)
+        # 本轮已放弃的悬赏行数，见 execute_mission / find_wq
+        self.wq_skip_count = 0
         error_count = 0
         while 1:
             self.screenshot()
@@ -295,11 +297,25 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             return tuple(result) if result[0] != -1 else None
 
         logger.hr('Start wanted quests')
+        click_count = 0
         while 1:
             self.screenshot()
             if self.appear(self.I_TRACE_TRUE):
                 break
+            if click_count >= 5:
+                # 神秘妖怪还没解锁地点时，详情面板里没有「追踪/前往」，点多少次都不会变，
+                # 继续点只会撞上 GameTooManyClickError 打死整个实例
+                logger.warning('Wanted quest has no trace button, skip this one')
+                self.wq_skip_count += 1
+                # 关掉详情面板才看得见列表；限定次数，别把自己点崩
+                for _ in range(3):
+                    self.screenshot()
+                    if not self.appear(self.I_UI_BACK_RED):
+                        break
+                    self.appear_then_click(self.I_UI_BACK_RED, interval=1)
+                return False
             if self.click(ocr, interval=1):
+                click_count += 1
                 continue
         if not self.appear(self.I_GOTO_1):
             # 如果没有出现 '前往'按钮， 那就是这个可能是神秘任务但是没有解锁
@@ -657,6 +673,9 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         # 过滤掉协或者未知悬赏等其他无用字符
         reg_other = re.compile(r'[?？协边]')
         completed_only = False
+        # 本轮的已放弃行（见 execute_mission），按“可返回的行”计数跳过
+        # shortcut: 顺序计数，列表若在本轮中途整体刷新可能跳错行；真出现再改成按行文本匹配
+        skip = self.wq_skip_count
         for index, res in enumerate(res_list):
             if reg_fengyin.match(res.ocr_text):
                 continue
@@ -680,6 +699,9 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 if cu == total:
                     # 该任务已完成，一般是悬赏任务，邀请人没有做导致的
                     completed_only = True
+                    continue
+                if skip > 0:
+                    skip -= 1
                     continue
                 return cu, re, total, xywh
             # 例如：1414 66 1212
