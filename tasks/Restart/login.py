@@ -67,6 +67,7 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
             self._update_probe_timer = Timer(5)
         if self._update_probe_timer.reached_and_reset() and not self.device.app_is_running():
             self._update_dl_timer = None
+            self._update_clicks = 0      # 下一次拉起客户端时重新允许点「确定」
             logger.warning('Client update: game process gone during download')
             return False
 
@@ -230,6 +231,11 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
                 # 自己没匹配上），继续戳反而可能在登录页右上角误触「用户协议」。
                 # 自更新会覆盖本补丁，之后重跑 .ops/patch-cg-skip.sh。
                 if not cg_logged_in and cg_taps < 15 and cg_grace.reached() and cg_timer.reached_and_reset():
+                    # YYS-update-confirm-patch: 空点前先确认客户端还活着。device.click() 会走
+                    # handle_control_check() → 清掉 stuck record，看门狗永远不触发，
+                    # 客户端崩了以后脚本会无限对着桌面点 (1166,56)（2026-11-11 MAVEL 实测）。
+                    if not self.device.app_is_running():
+                        raise GameStuckError('CG skip patch: game process gone during login')
                     cg_taps += 1
                     logger.info(f'Tap CG skip spot (1166,56) #{cg_taps}')
                     self.device.click(x=1166, y=56)
