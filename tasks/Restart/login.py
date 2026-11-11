@@ -58,7 +58,15 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
         # 下载完成：客户端自己重启回登录页（或直接落到庭院），把流程交回去
         if self.appear(self.I_LOGIN_8) or self.appear(self.I_BUFF_1):
             self._update_dl_timer = None
+            clicked = getattr(self, '_update_clicks', 0)
             self._update_clicks = 0
+            if clicked:
+                # YYS-update-confirm-patch: 热更下来的资源要客户端重启才干净生效。
+                # 实测下完不重启，约 1 分钟后进战斗就闪退（2026-11-11 LEVEL 11:40）。
+                logger.info('Client update: download finished, restart client to apply resources')
+                self.device.app_stop()
+                self.device.app_start()
+                self.device.stuck_record_clear()
             self.device.stuck_record_add('LOGIN_CHECK')
             logger.info('Client update: download finished, back to normal login flow')
             return False
