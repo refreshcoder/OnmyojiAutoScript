@@ -321,10 +321,8 @@ class ScriptTask(StateMachine, GameUi, Battle, BaseActivity, SwitchSoul, Activit
         """
         logger.hr(f'Start run climb type BOSS')
 
-        # YYS-boss-ui-patch2: ui_clicks 无 timeout（卡住只能等任务级超时），改带超时的 ui_click
-        if not self.appear(self.O_FIRE):
-            entry = self.I_TO_BATTLE_BOSS if self.appear(self.I_TO_BATTLE_BOSS) else self.O_BOSS_ENTRY
-            self.ui_click(entry, stop=self.O_FIRE, interval=1, timeout=90)
+        self.ui_clicks([self.I_TO_BATTLE_BOSS],
+                       stop=self.I_CHECK_BATTLE_BOSS, interval=1)
 
 
         while 1:
@@ -332,9 +330,7 @@ class ScriptTask(StateMachine, GameUi, Battle, BaseActivity, SwitchSoul, Activit
             self.put_status()
             # --------------------------------------------------------------
             if not self.ocr_appear(self.O_FIRE):
-                # YYS-boss-ui-patch: 旧图标不存在，先重试点新入口（文字），旧模板兜底
-                if not self.ocr_appear_click(self.O_BOSS_ENTRY, interval=4):
-                    self.appear_then_click(self.I_CHECK_BATTLE_BOSS, interval=4)
+                self.appear_then_click(self.I_CHECK_BATTLE_BOSS, interval=4)
                 continue
 
             if self.conf.general_climb.random_sleep:
@@ -362,10 +358,8 @@ class ScriptTask(StateMachine, GameUi, Battle, BaseActivity, SwitchSoul, Activit
             if (self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1) or
                     self.appear_then_click(self.I_UI_CONFIRM, interval=1) ):
                 continue
-            # YYS-boss-ui-patch: 补上 O_FIRE（新版 UI 没有 I_CHECK_BATTLE_*，否则永远点不到挑战）
-            if (self.appear(self.I_CHECK_BATTLE_MAIN, interval=1) or self.appear(self.I_CHECK_BATTLE_BOSS, interval=1)
-                    or self.ocr_appear(self.O_FIRE)) \
-                    and self.ocr_appear_click(self.O_FIRE, interval=2):
+            if (self.appear(self.I_CHECK_BATTLE_MAIN, interval=1) or self.appear(self.I_CHECK_BATTLE_BOSS, interval=1)) \
+                    and  self.ocr_appear_click(self.O_FIRE, interval=2):
                 click_times += 1
                 logger.info(f'Try click fire, remain times[{max_times - click_times}]')
                 continue
