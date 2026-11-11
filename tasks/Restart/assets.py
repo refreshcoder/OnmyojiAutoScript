@@ -110,6 +110,8 @@ class RestartAssets:
 	I_LOGIN_SPECIFIC_SERVE = RuleImage(roi_front=(0,0,120,120), roi_back=(0,0,120,120), threshold=0.8, method="Template matching", file="./tasks/Restart/login/login_login_specific_serve.png")
 	# 下载插画 
 	I_LOGIN_LOAD_DOWN = RuleImage(roi_front=(711,450,153,58), roi_back=(711,450,153,58), threshold=0.8, method="Template matching", file="./tasks/Restart/login/login_login_load_down.png")
+	# YYS-update-confirm-patch: 客户端「版本已更新，需下载额外资源」弹窗的「确定」按钮
+	I_UPDATE_CONFIRM = RuleImage(roi_front=(700,401,114,48), roi_back=(560,320,320,180), threshold=0.8, method="Template matching", file="./tasks/Restart/login/login_update_confirm.png")
 	# 登录界面 弹出框 前往绑定 手机 
 	I_LOGIN_LOGIN_GOTO_BIND_PHONE = RuleImage(roi_front=(940,430,170,150), roi_back=(940,430,170,150), threshold=0.8, method="Template matching", file="./tasks/Restart/login/login_login_goto_bind_phone.png")
 	# 登录界面 弹出框 确定绑定手机 

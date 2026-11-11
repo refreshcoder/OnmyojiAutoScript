@@ -142,5 +142,14 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "庭院卷轴收起状态标志(移植自mine)"
+  },
+  {
+    "itemName": "update_confirm",
+    "imageName": "login_update_confirm.png",
+    "roiFront": "700,401,114,48",
+    "roiBack": "560,320,320,180",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "客户端「版本已更新，需下载额外资源」弹窗的确定按钮"
   }
 ]

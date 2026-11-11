@@ -14,6 +14,12 @@ import time
 # 登录期间 MPay 弹窗「关掉又重弹」的容忍上限，超过说明回车已走不出去，交 Restart 重建
 DESKTOP_MPAY_CLOSE_LIMIT = 5
 
+# YYS-update-confirm-patch: 客户端强制更新弹窗最多点几次「确定」（同一个控件点 10 次会被
+# device.click_record 判成 GameTooManyClickError，宁可少点几次让它超时重启）
+UPDATE_CONFIRM_MAX_CLICK = 3
+# 125.8MB 资源包在局域网一般 1-2 分钟下完；给 10 分钟兜底，超时就交回看门狗
+UPDATE_DOWNLOAD_TIMEOUT = 600
+
 
 class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
     character: str
@@ -23,6 +29,49 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
         self.character = self.config.restart.login_character_config.character
         self.O_LOGIN_SPECIFIC_SERVE.keyword = self.character
         # self.specific_usr = kwargs['config'].
+
+    def _handle_client_update(self) -> bool:
+        """
+        客户端「版本已更新，需要下载额外资源」确认弹窗。
+
+        上游没有这个弹窗的处理：登录循环一直在等 I_LOGIN_8，60s 后被看门狗判卡死 →
+        重启客户端 → 又是同一弹窗 → 3 次后 Request human takeover（2026-11-11 两台都栽在这）。
+        这里点「确定」开始下载；下载期间画面认不出页面，就持续清看门狗，
+        等客户端自己重启回登录页再交回原流程。
+
+        :return: True: 已经处理，调用方应 continue（不要再去识别其他页面）
+        """
+        if getattr(self, '_update_clicks', 0) < UPDATE_CONFIRM_MAX_CLICK:
+            if self.appear_then_click(self.I_UPDATE_CONFIRM, interval=3):
+                self._update_clicks = getattr(self, '_update_clicks', 0) + 1
+                self._update_dl_timer = Timer(UPDATE_DOWNLOAD_TIMEOUT).start()
+                logger.info(f'Client update: click confirm #{self._update_clicks}, downloading resources')
+                self.device.stuck_record_clear()
+                return True
+            if getattr(self, '_update_dl_timer', None) is None:
+                return False
+
+        dl_timer = getattr(self, '_update_dl_timer', None)
+        if dl_timer is None or dl_timer.reached():
+            return False
+
+        # 下载完成：客户端自己重启回登录页（或直接落到庭院），把流程交回去
+        if self.appear(self.I_LOGIN_8) or self.appear(self.I_BUFF_1):
+            self._update_dl_timer = None
+            self._update_clicks = 0
+            self.device.stuck_record_add('LOGIN_CHECK')
+            logger.info('Client update: download finished, back to normal login flow')
+            return False
+        # 下载期间客户端挂掉就别干等，交回原流程 app_start
+        if not hasattr(self, '_update_probe_timer'):
+            self._update_probe_timer = Timer(5)
+        if self._update_probe_timer.reached_and_reset() and not self.device.app_is_running():
+            self._update_dl_timer = None
+            logger.warning('Client update: game process gone during download')
+            return False
+
+        self.device.stuck_record_clear()
+        return True
 
     def _app_handle_login(self) -> bool:
         """
@@ -80,6 +129,10 @@ class LoginHandler(BaseTask, RestartAssets, GameUiAssets, GeneralBuffAssets):
             if not self.device.check_screen_size_sample():
                 continue
             self._burst()
+
+            # YYS-update-confirm-patch: 客户端「版本已更新，需下载额外资源」弹窗（必须先于其它页面识别）
+            if self._handle_client_update():
+                continue
 
             # 取消继续战斗
             if self.appear_then_click(self.I_UI_CANCEL_SAMLL, interval=0.8):
