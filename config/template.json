@@ -843,7 +843,14 @@
     },
     "meta_demon_config": {
       "auto_tea": false,
-      "extreme_notify": false
+      "extreme_notify": false,
+      "only_summon_and_share": false
+    },
+    "md_share": {
+      "enable": false,
+      "friends": "",
+      "interval": 5,
+      "share_star": "5-6"
     },
     "switch_soul": {
       "enable": false,

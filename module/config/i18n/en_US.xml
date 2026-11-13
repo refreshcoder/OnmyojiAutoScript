@@ -74,4 +74,17 @@
         <translation>Locale</translation>
     </message>
 </context>
+<context>
+    <name>Args</name>
+    <message><source>md_share_enable</source><translation>Share Demon</translation></message>
+    <message><source>md_share_enable_help</source><translation>Share the summoned demon to configured players.</translation></message>
+    <message><source>md_share_friends</source><translation>Share To</translation></message>
+    <message><source>md_share_friends_help</source><translation>Friend names, comma separated. Searched in Friends first, then Cross-server.</translation></message>
+    <message><source>md_share_interval</source><translation>Poll Interval (min)</translation></message>
+    <message><source>md_share_interval_help</source><translation>Interval between runs in summon &amp; share only mode.</translation></message>
+    <message><source>md_only_summon_and_share</source><translation>Summon &amp; Share Only</translation></message>
+    <message><source>md_only_summon_and_share_help</source><translation>Only summon and share demons, never battle. One demon per run.</translation></message>
+    <message><source>md_share_star</source><translation>Share Star</translation></message>
+    <message><source>md_share_star_help</source><translation>all=share 1-6 star; 1-4=share only 1-4 star; 5-6=share only 5/6 star. Default 5-6.</translation></message>
+</context>
 </TS>

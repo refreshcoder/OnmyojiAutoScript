@@ -2,7 +2,7 @@
 # @author runhey
 # github https://github.com/runhey
 from cached_property import cached_property
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 
 
@@ -19,10 +19,11 @@ from tasks.Component.GeneralBattle.battle_wait import (
     battle_wait_strategy, battle_wait_options, runtime,
 )
 from tasks.Component.GeneralBattle.config_general_battle import GeneralBattleConfig
+from tasks.Component.GeneralInvite.general_invite import GeneralInvite
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.GameUi.game_ui import GameUi
 from tasks.GameUi.page import page_main, page_shikigami_records
-from tasks.MetaDemon.config import MetaDemon, DefaultStrategy, Strategy
+from tasks.MetaDemon.config import MetaDemon, DefaultStrategy, Strategy, ShareStar
 from tasks.MetaDemon.assets import MetaDemonAssets
 from tasks.Restart.assets import RestartAssets
 from tasks.ActivityShikigami.assets import ActivityShikigamiAssets
@@ -74,7 +75,7 @@ class Star56(GameUi, MetaDemonAssets):
         return tmp if tmp else self.cached_default_group_team
 
 
-class ScriptTask(RightActivity, Battle, GeneralBattle, SwitchSoul, Star56):
+class ScriptTask(RightActivity, Battle, GeneralBattle, GeneralInvite, SwitchSoul, Star56):
 
     def run(self):
         if self.config.meta_demon.switch_soul.enable:
@@ -102,6 +103,23 @@ class ScriptTask(RightActivity, Battle, GeneralBattle, SwitchSoul, Star56):
                 continue
         if self.config.meta_demon.meta_demon_config.meta_crafting_card:
             self.crafting()
+
+        share_config = self.config.meta_demon.md_share
+        only_summon_and_share = self.config.meta_demon.meta_demon_config.only_summon_and_share
+        if share_config.enable and not only_summon_and_share:
+            logger.warning('Share is enabled but only_summon_and_share is off; '
+                           'sharing is only available in summon & share only mode')
+
+        # 只召唤并分享鬼王，不自己战斗
+        if only_summon_and_share:
+            success = self.run_summon_and_share()
+            self.exit_meta_demon()
+            logger.info('Exit MetaDemon (summon & share only)')
+            # 这次只处理一只鬼王，鬼王被好友击杀后再由调度器重新召唤
+            delay = share_config.interval if success else max(share_config.interval, 30)
+            self.set_next_run(task="MetaDemon", success=success,
+                              target=datetime.now() + timedelta(minutes=delay))
+            raise TaskEnd
 
         boss_timer = Timer(50)
         boss_timer.start()
@@ -190,6 +208,232 @@ class ScriptTask(RightActivity, Battle, GeneralBattle, SwitchSoul, Star56):
         self.set_next_run(task="MetaDemon", success=True)
         raise TaskEnd
 
+    # ------------------------------------------------------------------------------------------------------------------
+    # 只召唤 + 分享
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def share_entry(self):
+        """分享入口。实机确认后如果入口不是“集结”，在这里换成 I_MD_SHARE"""
+        return self.I_BOSS_CONVENE
+
+    @property
+    def share_confirm(self):
+        """好友面板的确认按钮。实机确认后如果不同，在这里换成 I_MD_SHARE_ENSURE"""
+        return self.I_INVITE_ENSURE
+
+    def run_summon_and_share(self) -> bool:
+        """
+        本次运行只做两件事：召唤鬼王、把鬼王分享给 md_share.friends 里的玩家。
+        不进入战斗，也不处理别人的鬼王。
+        """
+        logger.hr('MetaDemon summon & share only', 1)
+
+        # 1. 已经有自己的鬼王：只补分享，不召唤
+        if self.own_boss_exists():
+            if self.appear(self.I_BOOS_PUBLIC):
+                logger.info('Own boss is already public, skip share')
+            else:
+                logger.info('Own boss exists, only try to share')
+                self.share_demon()
+            return True
+
+        # 2. 没有鬼王，检查召唤门票
+        if not self.has_summon_ticket():
+            logger.warning('No summon ticket, skip this run')
+            return False
+
+        # 3. 召唤
+        if not self.find_demon(timeout=60):
+            logger.warning('Summon demon failed')
+            return False
+
+        # 4. 分享
+        self.share_demon()
+        return True
+
+    def own_boss_exists(self) -> bool:
+        """当前是否已经有一只自己的鬼王"""
+        self.screenshot()
+        # 鬼王详情页（挑战按钮可见）说明已经有鬼王
+        if self.appear(self.I_BATTLE_DEMON):
+            return True
+        # 主界面：I_BOSS_EMPTY 出现表示自己的鬼王槽位是空的
+        return not self.appear(self.I_BOSS_EMPTY)
+
+    def has_summon_ticket(self) -> bool:
+        """检查召唤鬼王所需门票；OCR 失败时返回 True，交给召唤流程兜底"""
+        self.screenshot()
+        current, remain, total = self.O_MD_TICKET.ocr(self.device.image)
+        logger.info(f'Summon ticket: current={current}, remain={remain}, total={total}')
+        if total <= 0:
+            logger.warning('Summon ticket OCR failed, try summon anyway')
+            return True
+        return current > 0
+
+    def share_demon(self) -> bool:
+        """
+        把自己的鬼王分享给配置里的指定玩家。
+
+        入口说明：
+          - 主界面鬼王卡片上的“集结”图标（I_BOSS_CONVENE）目前先作为分享入口；
+          - 好友面板的“确定/邀请”按钮复用 GeneralInvite 的 I_INVITE_ENSURE；
+          - 如果实机发现入口或确认按钮不是这两个图，需要按实际截图补充
+            I_MD_SHARE / I_MD_SHARE_ENSURE 后再替换这里。
+                """
+        con = self.config.meta_demon.md_share
+        if not con.enable:
+            logger.info('Share demon is disabled')
+            return False
+
+        friends = con.parse_friends()
+        if not friends:
+            logger.info('Share demon: no friend configured')
+            return False
+
+        # 没在详情页时先进入详情页，is_star56 依赖详情页的星级标记
+        if not self.enter_boss_detail():
+            logger.warning('Share demon: enter boss detail failed')
+            return False
+
+        if con.share_star != ShareStar.ALL:
+            is_star56 = self.is_star56()
+            if con.share_star == ShareStar.STAR_1_4 and is_star56:
+                logger.info('Share demon: 5/6 star, skip (only share 1-4 star)')
+                return False
+            if con.share_star == ShareStar.STAR_5_6 and not is_star56:
+                logger.info('Share demon: not 5/6 star, skip (only share 5-6 star)')
+                return False
+
+        shared = []
+        for name in friends:
+            if not self.open_share_panel():
+                # 分享入口消失：一般是次数用完 / 已经分享过 / 该鬼王不可分享
+                logger.info('Share demon: share entry not found, stop')
+                break
+            if self.share_to_friend(name):
+                shared.append(name)
+                logger.info(f'Share demon: share to [{name}] success')
+            else:
+                logger.warning(f'Share demon: share to [{name}] failed')
+
+        if shared:
+            self.config.notifier.push(
+                content=f'鬼王已分享给: {", ".join(shared)}', title='超鬼王')
+        return bool(shared)
+
+    def enter_boss_detail(self) -> bool:
+        """从主界面点自己的鬼王卡片进入详情页"""
+        if self.appear(self.I_BATTLE_DEMON):
+            return True
+        timer = Timer(10).start()
+        while 1:
+            self.screenshot()
+            if self.appear(self.I_BATTLE_DEMON):
+                return True
+            if timer.reached():
+                logger.warning('Share demon: enter boss detail timeout')
+                return False
+            # I_BOSS_EMPTY 这里是借用空槽位的坐标来点自己的鬼王卡片
+            self.click(self.I_BOSS_EMPTY, interval=2)
+
+    def open_share_panel(self) -> bool:
+        """打开好友分享面板，成功时 I_INVITE_ENSURE 可见"""
+        self.screenshot()
+        if self.appear(self.share_confirm):
+            return True
+
+        # 主界面：点自己鬼王卡片上的分享入口
+        timer = Timer(10).start()
+        while 1:
+            self.screenshot()
+            if self.appear(self.share_confirm):
+                return True
+            if timer.reached():
+                break
+            if self.appear_then_click(self.share_entry, interval=1.5):
+                continue
+
+        # 详情页：进入详情后再尝试一次
+        if not self.enter_boss_detail():
+            return False
+        timer.reset()
+        while 1:
+            self.screenshot()
+            if self.appear(self.share_confirm):
+                return True
+            if timer.reached():
+                break
+            if self.appear_then_click(self.share_entry, interval=1.5):
+                continue
+
+        logger.warning('Share demon: open share panel failed, '
+                       'check share_entry / share_confirm assets')
+        return False
+
+    def share_to_friend(self, name: str) -> bool:
+        """
+        在已经打开的好友面板里选中 name，然后点击确定。
+        先在“好友”页找，找不到再去“跨区”页找，和 MysteryShop.share 的做法一致。
+        """
+        selected = False
+
+        self.switch_friend_tab(self.I_FLAG_1_OFF, self.I_FLAG_1_ON)
+        selected = self.detect_select(name)
+
+        if not selected:
+            self.switch_friend_tab(self.I_FLAG_2_OFF, self.I_FLAG_2_ON)
+            selected = self.detect_select(name)
+
+        # 不论是否选中都要点确定，否则面板关不掉
+        timer = Timer(5).start()
+        while 1:
+            self.screenshot()
+            if not self.appear(self.share_confirm):
+                break
+            if timer.reached():
+                logger.warning('Share demon: confirm timeout')
+                break
+            if self.appear_then_click(self.share_confirm, interval=1):
+                continue
+
+        return selected
+
+    def switch_friend_tab(self, off_img, on_img) -> bool:
+        """切换到指定好友分类页，off/on 为 GeneralInvite 的 I_FLAG_x_OFF/ON"""
+        timer = Timer(5).start()
+        while 1:
+            self.screenshot()
+            if self.appear(on_img):
+                return True
+            if timer.reached():
+                logger.warning('Share demon: switch friend tab timeout')
+                return False
+            if self.appear_then_click(off_img, interval=1):
+                continue
+
+    def exit_meta_demon(self):
+        """退出超鬼王活动，回到庭院"""
+        self.screenshot()
+        if self.appear(self.I_CHECK_MAIN):
+            return
+
+        # 正常情况下面板已经关了；异常时兜底关一次
+        self.ui_click_until_disappear(self.share_confirm, interval=1)
+
+        # 详情页 / 活动主页：通用返回，直到回到庭院
+        timer = Timer(15).start()
+        while not timer.reached():
+            self.screenshot()
+            if self.appear(self.I_CHECK_MAIN):
+                return
+            if self.appear_then_click(self.I_UI_BACK_RED, interval=1.5):
+                continue
+            if self.appear_then_click(self.I_UI_BACK_YELLOW, interval=1.4):
+                continue
+            break
+
+        logger.warning('Exit MetaDemon timeout')
+
     def current_exhaustion(self) -> int:
         self.screenshot()
         cu, res, total = self.O_MD_EXHAUSTION.ocr(self.device.image)
@@ -228,26 +472,36 @@ class ScriptTask(RightActivity, Battle, GeneralBattle, SwitchSoul, Star56):
         self.ui_click_until_disappear(self.I_UI_BACK_RED, interval=1)
         sleep(0.5)
 
-    def find_demon(self) -> bool:
+    def find_demon(self, timeout: float = None) -> bool:
         """
         召唤鬼王
+        @param timeout: 召唤超时时间（秒），None 表示不超时（保持原有行为）
         @return:
         """
         logger.info('Find demon')
+        timer = Timer(timeout).start() if timeout else None
         while 1:
             self.screenshot()
             if self.appear(self.I_BATTLE_DEMON) and not self.appear(self.I_BOSS_EMPTY):
                 break
+            if timer and timer.reached():
+                logger.warning('Find demon timeout')
+                return False
             if self.appear_then_click(self.I_FIND_DEMON, interval=3.5):
                 continue
         self.screenshot()
         if self.is_star56():
             logger.info('Star 5 or 6 demon found')
+            timer = Timer(10).start()
+            detect_full_name = ''
             while 1:
                 sleep(0.4)
                 self.screenshot()
                 detect_full_name = self.O_MD_FULL_NAME.ocr_single(self.device.image)
                 if detect_full_name:
+                    break
+                if timer.reached():
+                    logger.warning('OCR demon name timeout')
                     break
             logger.info(f'召唤到高星鬼王: {detect_full_name}')
             self.config.notifier.push(content=f'召唤到高星鬼王: {detect_full_name}', title='超鬼王')

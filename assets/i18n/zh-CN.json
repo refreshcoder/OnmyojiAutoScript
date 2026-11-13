@@ -168,5 +168,15 @@
   "green_mark_type": "绿标匹配方式",
   "green_mark_type_help": "按坐标点击指定绿标，或按式神名OCR 匹配后点击",
   "green_mark_name": "绿标式神名称",
-  "green_mark_name_help": "仅当绿标按式神名匹配时生效，填写目标式神名"
+  "green_mark_name_help": "仅当绿标按式神名匹配时生效，填写目标式神名",
+  "md_share_enable": "分享鬼王",
+  "md_share_enable_help": "开启后，召唤鬼王后会把鬼王分享给下面配置的玩家。",
+  "md_share_friends": "分享给谁",
+  "md_share_friends_help": "好友昵称，多个用逗号分隔，例如：我的小号,好友B。先在“好友”页找，找不到再去“跨区”页找。",
+  "md_only_summon_and_share": "只召唤并分享",
+  "md_only_summon_and_share_help": "开启后本任务只召唤鬼王并分享给指定玩家，不自己战斗。每次运行只处理一只鬼王，等好友击杀后由调度器重新召唤。",
+  "md_share_interval": "轮询间隔(分钟)",
+  "md_share_interval_help": "“只召唤并分享”模式下，两次运行之间的间隔，默认5分钟。好友击杀鬼王后下一轮会自动召唤新的。",
+  "md_share_star": "分享星级",
+  "md_share_star_help": "all=1-6星都分享；1-4=只分享1-4星；5-6=只分享5/6星。默认5-6。"
 }

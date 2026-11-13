@@ -73,6 +73,27 @@ class Strategy(ConfigBase):
         return result
 
 
+class ShareStar(str, Enum):
+    ALL = 'all'          # 1-6 星都分享
+    STAR_1_4 = '1-4'     # 只分享 1-4 星
+    STAR_5_6 = '5-6'     # 只分享 5/6 星
+
+
+class ShareConfig(ConfigBase):
+    """把召唤出来的鬼王分享给指定玩家"""
+    enable: bool = Field(default=False, description='md_share_enable_help')
+    # 好友昵称，中英文逗号、空格分隔，例如： "我的小号,好友B"
+    friends: str = Field(default='', description='md_share_friends_help')
+    # 分享哪些星级：all / 1-4 / 5-6
+    share_star: ShareStar = Field(default=ShareStar.STAR_5_6, description='md_share_star_help')
+    # “只召唤并分享”模式下，两次运行之间的间隔（分钟）
+    interval: int = Field(default=5, ge=1, le=180, description='md_share_interval_help')
+
+    def parse_friends(self) -> list[str]:
+        friends = self.friends.replace('，', ',').replace(' ', '')
+        return [f for f in friends.split(',') if f]
+
+
 class MetaDemonConfig(ConfigBase):
     meta_crafting_card: bool = Field(default=True, description='craft_essence_help')
     auto_tea: bool = Field(default=False, description='auto_tea_help')
@@ -80,6 +101,8 @@ class MetaDemonConfig(ConfigBase):
     # extreme_notify: bool = Field(default=False, description='extreme_notify_help')
     md_strategy_count: int = Field(default=0, ge=0, description='md_strategy_count_help')
     md_use_strategy: bool = Field(default=False, description='md_use_strategy_help')
+    # 只召唤并分享鬼王，不自己战斗
+    only_summon_and_share: bool = Field(default=False, description='md_only_summon_and_share_help')
 
     @field_validator('auto_tea', mode='after')
     @classmethod
@@ -99,11 +122,19 @@ class MetaDemon(ConfigBase):
     switch_soul: SwitchSoulConfig = Field(default_factory=SwitchSoulConfig)
     meta_demon_config: MetaDemonConfig = Field(default_factory=MetaDemonConfig)
     md_default_strategy: DefaultStrategy = Field(default_factory=DefaultStrategy)
+    md_share: ShareConfig = Field(default_factory=ShareConfig)
     md_strategies: list[Strategy] = None
 
     @model_validator(mode='before')
     @classmethod
     def validator_all(cls, v: dict) -> Any:
+        # 兼容旧字段 md_share.only_star56 -> md_share.share_star
+        md_share = v.get('md_share')
+        if isinstance(md_share, dict) and 'only_star56' in md_share:
+            if 'share_star' not in md_share:
+                md_share['share_star'] = '5-6' if md_share['only_star56'] else 'all'
+            md_share.pop('only_star56', None)
+
         strategy_count = v.get('meta_demon_config', {}).get('md_strategy_count', 1)
 
         def validator_list(list_name, data, item_type=None, list_size=1):

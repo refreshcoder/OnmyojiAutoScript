@@ -739,5 +739,16 @@ Refresh：直接刷新，如果刷新操作进入CD，将标记为失败并退�
 	<message><source>Time Of Mystery</source><translation>强制设定出现神秘商店当天的执行时间</translation></message>
 	<message><source>time_of_mystery_help</source><translation>限定[00:00:01-23:30:00],这将使你无视掉调度器的Interval。保持默认'00:00:00'表示不使用</translation></message>
 	<message><source>TakoConfig</source><translation>石距加成</translation></message>
+
+    <message><source>md_share_enable</source><translation>分享鬼王</translation></message>
+    <message><source>md_share_enable_help</source><translation>开启后，召唤鬼王后会把鬼王分享给下面配置的玩家。</translation></message>
+    <message><source>md_share_friends</source><translation>分享给谁</translation></message>
+    <message><source>md_share_friends_help</source><translation>好友昵称，多个用逗号分隔，例如：我的小号,好友B。先在“好友”页找，找不到再去“跨区”页找。</translation></message>
+    <message><source>md_only_summon_and_share</source><translation>只召唤并分享</translation></message>
+    <message><source>md_only_summon_and_share_help</source><translation>开启后本任务只召唤鬼王并分享给指定玩家，不自己战斗。每次运行只处理一只鬼王，等好友击杀后由调度器重新召唤。</translation></message>
+    <message><source>md_share_interval</source><translation>轮询间隔(分钟)</translation></message>
+    <message><source>md_share_interval_help</source><translation>“只召唤并分享”模式下，两次运行之间的间隔，默认5分钟。好友击杀鬼王后下一轮会自动召唤新的。</translation></message>
+    <message><source>md_share_star</source><translation>分享星级</translation></message>
+    <message><source>md_share_star_help</source><translation>all=1-6星都分享；1-4=只分享1-4星；5-6=只分享5/6星。默认5-6。</translation></message>
 </context>
 </TS>

@@ -1,3 +1,12 @@
 {
-
+  "md_share_enable": "Share Demon",
+  "md_share_enable_help": "Share the summoned demon to configured players.",
+  "md_share_friends": "Share To",
+  "md_share_friends_help": "Friend names, comma separated. Searched in Friends first, then Cross-server.",
+  "md_only_summon_and_share": "Summon & Share Only",
+  "md_only_summon_and_share_help": "Only summon and share demons, never battle. One demon per run.",
+  "md_share_interval": "Poll Interval (min)",
+  "md_share_interval_help": "Interval between runs in summon & share only mode. Default 5 minutes.",
+  "md_share_star": "Share Star",
+  "md_share_star_help": "all=share 1-6 star; 1-4=share only 1-4 star; 5-6=share only 5/6 star. Default 5-6."
 }
