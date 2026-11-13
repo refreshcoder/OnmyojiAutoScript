@@ -1,0 +1,14 @@
+[
+  {
+    "itemName": "convene_tab_1",
+    "roiFront": "357,100,104,50",
+    "roiBack": "357,100,104,50",
+    "description": "集结面板 好友tab 点击位"
+  },
+  {
+    "itemName": "convene_tab_2",
+    "roiFront": "467,100,96,50",
+    "roiBack": "467,100,96,50",
+    "description": "集结面板 寮友tab 点击位"
+  }
+]

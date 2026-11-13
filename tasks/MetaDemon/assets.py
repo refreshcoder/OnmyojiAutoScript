@@ -10,6 +10,21 @@ from module.atom.list import RuleList
 class MetaDemonAssets: 
 
 
+	# Ocr Rule Assets
+	# Ocr-description 
+	O_MD_EXHAUSTION = RuleOcr(roi=(1114,24,94,31), area=(1114,24,94,31), mode="DigitCounter", method="Default", keyword="", name="md_exhaustion")
+	# Ocr-description 
+	O_MD_TICKET = RuleOcr(roi=(923,18,82,30), area=(923,18,82,30), mode="DigitCounter", method="Default", keyword="", name="md_ticket")
+	# Ocr-description 
+	O_MD_COUNT_INFO = RuleOcr(roi=(94,314,161,37), area=(94,314,161,37), mode="Single", method="Default", keyword="击败奖励结算中", name="md_count_info")
+	# 一星卡 
+	O_CRAFTING_CARD_1 = RuleOcr(roi=(303,158,161,33), area=(303,158,161,33), mode="Single", method="Default", keyword="一星梦告铃鼓", name="crafting_card_1")
+	# 式神全名 
+	O_MD_FULL_NAME = RuleOcr(roi=(479,116,100,217), area=(479,116,100,217), mode="Full", method="Default", keyword="", name="md_full_name")
+	# 判断别人是否给鬼王 
+	O_BOSS_EMPTY_1 = RuleOcr(roi=(141,400,94,32), area=(141,400,94,32), mode="Single", method="Default", keyword="剩余时间", name="boss_empty_1")
+
+
 	# Image Rule Assets
 	# 失败 
 	I_MD_BATTLE_FAILURE = RuleImage(roi_front=(412,105,100,100), roi_back=(412,105,100,100), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_battle_failure.png")
@@ -30,6 +45,12 @@ class MetaDemonAssets:
 	I_BOSS_EMPTY = RuleImage(roi_front=(44,134,88,85), roi_back=(44,134,88,85), threshold=0.7, method="Template matching", file="./tasks/MetaDemon/md/md_boss_empty.png")
 	# 集结 
 	I_BOSS_CONVENE = RuleImage(roi_front=(251,155,47,52), roi_back=(228,127,88,90), threshold=0.7, method="Template matching", file="./tasks/MetaDemon/md/md_boss_convene.png")
+	# 集结面板 好友tab 选中态 
+	I_BOSS_CONVENE_TAB_1 = RuleImage(roi_front=(357,100,104,50), roi_back=(337,80,144,90), threshold=0.85, method="Template matching", file="./tasks/MetaDemon/md/md_convene_tab_1.png")
+	# 集结面板 寮友tab 选中态 
+	I_BOSS_CONVENE_TAB_2 = RuleImage(roi_front=(467,100,96,50), roi_back=(447,80,136,90), threshold=0.85, method="Template matching", file="./tasks/MetaDemon/md/md_convene_tab_2.png")
+	# 集结面板 好友已选中的青色菱形勾（左列x≈617 右列x≈910） 
+	I_BOSS_CONVENE_SELECTED = RuleImage(roi_front=(601,275,34,40), roi_back=(580,170,370,350), threshold=0.85, method="Template matching", file="./tasks/MetaDemon/md/md_convene_selected.png")
 	# description 
 	I_BOSS_EMPTY_1 = RuleImage(roi_front=(46,372,87,90), roi_back=(46,372,87,90), threshold=0.5, method="Template matching", file="./tasks/MetaDemon/md/md_boss_empty_1.png")
 	# description 
@@ -56,18 +77,10 @@ class MetaDemonAssets:
 	I_BOOS_PUBLIC = RuleImage(roi_front=(251,155,47,52), roi_back=(228,127,88,90), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_boos_public.png")
 
 
-	# Ocr Rule Assets
-	# Ocr-description 
-	O_MD_EXHAUSTION = RuleOcr(roi=(1114,24,94,31), area=(1114,24,94,31), mode="DigitCounter", method="Default", keyword="", name="md_exhaustion")
-	# Ocr-description 
-	O_MD_TICKET = RuleOcr(roi=(923,18,82,30), area=(923,18,82,30), mode="DigitCounter", method="Default", keyword="", name="md_ticket")
-	# Ocr-description 
-	O_MD_COUNT_INFO = RuleOcr(roi=(94,314,161,37), area=(94,314,161,37), mode="Single", method="Default", keyword="击败奖励结算中", name="md_count_info")
-	# 一星卡 
-	O_CRAFTING_CARD_1 = RuleOcr(roi=(303,158,161,33), area=(303,158,161,33), mode="Single", method="Default", keyword="一星梦告铃鼓", name="crafting_card_1")
-	# 式神全名 
-	O_MD_FULL_NAME = RuleOcr(roi=(479,116,100,217), area=(479,116,100,217), mode="Full", method="Default", keyword="", name="md_full_name")
-	# 判断别人是否给鬼王 
-	O_BOSS_EMPTY_1 = RuleOcr(roi=(141,400,94,32), area=(141,400,94,32), mode="Single", method="Default", keyword="剩余时间", name="boss_empty_1")
+	# Click Rule Assets
+	# 集结面板 好友tab 点击位 
+	C_CONVENE_TAB_1 = RuleClick(roi_front=(357,100,104,50), roi_back=(357,100,104,50), name="convene_tab_1")
+	# 集结面板 寮友tab 点击位 
+	C_CONVENE_TAB_2 = RuleClick(roi_front=(467,100,96,50), roi_back=(467,100,96,50), name="convene_tab_2")
 
 

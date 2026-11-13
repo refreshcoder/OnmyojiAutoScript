@@ -213,12 +213,17 @@ class ScriptTask(RightActivity, Battle, GeneralBattle, GeneralInvite, SwitchSoul
     # ------------------------------------------------------------------------------------------------------------------
     @property
     def share_entry(self):
-        """分享入口。实机确认后如果入口不是“集结”，在这里换成 I_MD_SHARE"""
+        """分享入口：鬼王卡片上的“集结”（实机 1280x720 抓图，匹配 0.999）"""
         return self.I_BOSS_CONVENE
 
     @property
     def share_confirm(self):
-        """好友面板的确认按钮。实机确认后如果不同，在这里换成 I_MD_SHARE_ENSURE"""
+        """集结面板的邀请按钮（与 GeneralInvite 的 I_INVITE_ENSURE 是同一张图，实机 0.999）"""
+        return self.I_INVITE_ENSURE
+
+    @property
+    def share_panel(self):
+        """集结面板是否已打开：只有这个面板有邀请按钮"""
         return self.I_INVITE_ENSURE
 
     def run_summon_and_share(self) -> bool:
@@ -337,16 +342,11 @@ class ScriptTask(RightActivity, Battle, GeneralBattle, GeneralInvite, SwitchSoul
             self.click(self.I_BOSS_EMPTY, interval=2)
 
     def open_share_panel(self) -> bool:
-        """打开好友分享面板，成功时 I_INVITE_ENSURE 可见"""
-        self.screenshot()
-        if self.appear(self.share_confirm):
-            return True
-
-        # 主界面：点自己鬼王卡片上的分享入口
+        """点集结按钮，直到集结面板真的打开（面板标志 = 邀请按钮可见）"""
         timer = Timer(10).start()
         while 1:
             self.screenshot()
-            if self.appear(self.share_confirm):
+            if self.appear(self.share_panel):
                 return True
             if timer.reached():
                 break
@@ -359,56 +359,98 @@ class ScriptTask(RightActivity, Battle, GeneralBattle, GeneralInvite, SwitchSoul
         timer.reset()
         while 1:
             self.screenshot()
-            if self.appear(self.share_confirm):
+            if self.appear(self.share_panel):
                 return True
             if timer.reached():
                 break
             if self.appear_then_click(self.share_entry, interval=1.5):
                 continue
 
-        logger.warning('Share demon: open share panel failed, '
-                       'check share_entry / share_confirm assets')
+        logger.warning('Share demon: open convene panel failed, '
+                       'check I_BOSS_CONVENE / I_INVITE_ENSURE assets')
         return False
 
     def share_to_friend(self, name: str) -> bool:
         """
-        在已经打开的好友面板里选中 name，然后点击确定。
-        先在“好友”页找，找不到再去“跨区”页找，和 MysteryShop.share 的做法一致。
+        在已经打开的集结面板里选中 name，然后点邀请。
+        先找“好友”页，找不到再找“寮友”页（点选后需看到青色菱形勾才算选中）。
         """
         selected = False
-
-        self.switch_friend_tab(self.I_FLAG_1_OFF, self.I_FLAG_1_ON)
-        selected = self.detect_select(name)
+        for index in (1, 2):
+            if not self.switch_friend_tab(index):
+                continue
+            if self.detect_select(name):
+                selected = True
+                break
 
         if not selected:
-            self.switch_friend_tab(self.I_FLAG_2_OFF, self.I_FLAG_2_ON)
-            selected = self.detect_select(name)
+            logger.warning(f'Share demon: [{name}] not found in any tab')
 
-        # 不论是否选中都要点确定，否则面板关不掉
-        timer = Timer(5).start()
-        while 1:
-            self.screenshot()
-            if not self.appear(self.share_confirm):
-                break
-            if timer.reached():
-                logger.warning('Share demon: confirm timeout')
-                break
-            if self.appear_then_click(self.share_confirm, interval=1):
-                continue
-
+        # 不论是否选中都要点邀请，否则面板关不掉
+        self.click_invite()
         return selected
 
-    def switch_friend_tab(self, off_img, on_img) -> bool:
-        """切换到指定好友分类页，off/on 为 GeneralInvite 的 I_FLAG_x_OFF/ON"""
-        timer = Timer(5).start()
+    def detect_select(self, name: str = None) -> bool:
+        """
+        在集结面板里选中好友 name。
+
+        不走 GeneralInvite.detect_select：那边用 I_SELECTED（邀请面板的勾，ROI 在右列第三行）
+        且 while 没有超时——集结面板里点了名字但匹配不到 I_SELECTED 会无限重点。
+        这里改成最多 3 轮，每轮点完只等 2s 的菱形勾。
+        """
+        if not name:
+            return False
+
+        for _ in range(3):
+            self.screenshot()
+            self.O_FRIEND_NAME_1.keyword = name
+            self.O_FRIEND_NAME_2.keyword = name
+            clicked = self.ocr_appear_click(self.O_FRIEND_NAME_1, interval=1, exact=True)
+            clicked = self.ocr_appear_click(self.O_FRIEND_NAME_2, interval=1, exact=True) or clicked
+            if not clicked:
+                logger.info(f'Share demon: [{name}] not in current tab')
+                return False
+            timer = Timer(2).start()
+            while not timer.reached():
+                self.screenshot()
+                if self.appear(self.I_BOSS_CONVENE_SELECTED):
+                    return True
+            logger.warning(f'Share demon: clicked [{name}] but no selected mark, retry')
+        return False
+
+    def click_invite(self) -> bool:
+        """点邀请并等面板关闭；关不掉就再点，最多 3 次"""
+        for _ in range(3):
+            self.screenshot()
+            if not self.appear(self.share_confirm):
+                return True
+            self.click(self.share_confirm, interval=1)
+            timer = Timer(3).start()
+            while not timer.reached():
+                self.screenshot()
+                if not self.appear(self.share_confirm):
+                    return True
+        logger.warning('Share demon: invite clicked but panel still open')
+        return False
+
+    def switch_friend_tab(self, index: int) -> bool:
+        """
+        切到好友(index=1) / 寮友(index=2) 页。
+        以 tab 的“选中态”资产为准（未选中的 tab 是淡色，匹配不上）。
+        """
+        if index == 1:
+            click, active = self.C_CONVENE_TAB_1, self.I_BOSS_CONVENE_TAB_1
+        else:
+            click, active = self.C_CONVENE_TAB_2, self.I_BOSS_CONVENE_TAB_2
+        timer = Timer(4).start()
         while 1:
             self.screenshot()
-            if self.appear(on_img):
+            if self.appear(active):
                 return True
             if timer.reached():
-                logger.warning('Share demon: switch friend tab timeout')
+                logger.warning(f'Share demon: switch to tab {index} timeout')
                 return False
-            if self.appear_then_click(off_img, interval=1):
+            if self.click(click, interval=1):
                 continue
 
     def exit_meta_demon(self):

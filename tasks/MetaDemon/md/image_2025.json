@@ -54,6 +54,33 @@
     "description": "集结"
   },
   {
+    "itemName": "boss_convene_tab_1",
+    "imageName": "md_convene_tab_1.png",
+    "roiFront": "357,100,104,50",
+    "roiBack": "337,80,144,90",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "集结面板 好友tab 选中态"
+  },
+  {
+    "itemName": "boss_convene_tab_2",
+    "imageName": "md_convene_tab_2.png",
+    "roiFront": "467,100,96,50",
+    "roiBack": "447,80,136,90",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "集结面板 寮友tab 选中态"
+  },
+  {
+    "itemName": "boss_convene_selected",
+    "imageName": "md_convene_selected.png",
+    "roiFront": "601,275,34,40",
+    "roiBack": "580,170,370,350",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "集结面板 好友已选中的青色菱形勾（左列x≈617 右列x≈910）"
+  },
+  {
     "itemName": "boss_empty_1",
     "imageName": "md_boss_empty_1.png",
     "roiFront": "46,372,87,90",
